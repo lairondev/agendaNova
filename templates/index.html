@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda Interativa</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/fullCalendar.css') }}" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .sidebar {
+            background-color: #24529b;
+            color: white;
+            height: 100vh;
+        }
+        .calendar-container {
+            padding: 20px;
+        }
+        .card-info {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="d-flex">
+        <!-- Sidebar -->
+        <div class="sidebar p-3">
+            <h5>Mini Calendário</h5>
+            <hr>
+            <!-- Card de Veículos Disponíveis -->
+            <div class="card card-info">
+                <div class="card-body">
+                    <h6 class="card-title">Veículos Disponíveis</h6>
+                    <p id="veiculosDisponiveis">total: {{veiculos_disponiveis}}</p>
+                </div>
+            </div>
+
+            <h6>Filtros</h6>
+            <label><input type="checkbox" checked> Disponíveis</label><br>
+            <label><input type="checkbox"> Indisponíveis</label>
+        </div>
+        <!-- Main Content -->
+        <div class="flex-grow-1">
+            <div class="calendar-container">
+                <div id="calendar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Agendamento -->
+    <div class="modal fade" id="agendamentoModal" tabindex="-1" aria-labelledby="agendamentoModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="agendamentoModalLabel">Novo Agendamento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="agendamentoForm">
+                        <div class="mb-3">
+                            <label for="dataInicio" class="form-label">Data e Hora de Início</label>
+                            <input type="datetime-local" class="form-control" id="dataInicio">
+                        </div>
+                        <div class="mb-3">
+                            <label for="dataTermino" class="form-label">Data e Hora de Término</label>
+                            <input type="datetime-local" class="form-control" id="dataTermino">
+                        </div>
+                        <div class="mb-3">
+                            <label for="veiculo" class="form-label">Veículo</label>
+                            <select class="form-select" id="veiculo">
+                                <option value="">Selecione um veículo</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="detalhes" class="form-label">Detalhes</label>
+                            <textarea class="form-control" id="detalhes" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="salvarAgendamento">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/fullCalendar.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
+            var agendamentoModal = new bootstrap.Modal(document.getElementById('agendamentoModal'));
+            var dataInicioInput = document.getElementById('dataInicio');
+            var dataTerminoInput = document.getElementById('dataTermino');
+            var salvarAgendamentoBtn = document.getElementById('salvarAgendamento');
+            var veiculoInput = document.getElementById('veiculo');
+            var detalhesInput = document.getElementById('detalhes');
+            var veiculosDisponiveis = document.getElementById('veiculosDisponiveis');
+
+            // Inicializa o calendário
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'timeGridWeek',
+                events: '/api/agendamentos',
+                dateClick: function(info) {
+                    // Abre o modal ao clicar em uma data
+                    agendamentoModal.show();
+                }
+            });
+
+            calendar.render();
+
+            // Carregar os veículos disponíveis
+            fetch('/api/veiculos/contagem')
+                .then(response => response.json())
+                .then(data => {
+                    veiculosDisponiveis.textContent = `${data.disponiveis} veículos disponíveis`;
+                });
+
+            // Carregar os veículos no modal
+            fetch('/api/veiculos')
+                .then(response => response.json())
+                .then(data => {
+                    veiculoInput.innerHTML = '<option value="">Selecione um veículo</option>';
+                    data.forEach(veiculo => {
+                        veiculoInput.innerHTML += `<option value="${veiculo.id}">${veiculo.nome}</option>`;
+                    });
+                });
+
+            // Salvar agendamento
+            salvarAgendamentoBtn.addEventListener('click', function() {
+                var agendamentoData = {
+                    veiculo_id: veiculoInput.value,
+                    start: dataInicioInput.value,
+                    end: dataTerminoInput.value,
+                    detalhes: detalhesInput.value
+                };
+
+                fetch('/api/agendamentos', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(agendamentoData)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Fechar o modal e recarregar o calendário
+                    agendamentoModal.hide();
+                    calendar.refetchEvents();
+                });
+            });
+        });
+    </script>
+</body>
+</html>
