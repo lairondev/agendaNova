@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agenda Interativa</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/fullCalendar.css') }}" rel="stylesheet">
+    <link href="{{url_for('static', filename='css/fullCalendar.css')}}" rel="stylesheet">
+    <link href="{{url_for('static', filename='css/style.css')}}" rel="stylesheet">
     <style>
         body {
             background-color: #f8f9fa;
@@ -41,9 +42,13 @@
             <label><input type="checkbox" checked> Disponíveis</label><br>
             <label><input type="checkbox"> Indisponíveis</label>
             <hr>
-            <button class="btn btn-light mt-3 w-100" data-bs-toggle="modal" data-bs-target="#cadastrarVeiculoModal">
+            <button class="btn btn-light mt-3 mb-3 w-100" data-bs-toggle="modal" data-bs-target="#cadastrarVeiculoModal">
                 Cadastrar Veículo
             </button>
+			<button class="btn btn-success liberar-veiculo" data-veiculo-id="1">
+				Liberar
+			</button>
+
         </div>
         <!-- Main Content -->
         <div class="flex-grow-1">
@@ -125,7 +130,51 @@
             </div>
         </div>
     </div>
-    
+	
+	<!-- Script Cadastra Veículo -->
+	<script>
+		document.getElementById('salvarVeiculo').addEventListener('click', function() {
+			const marca = document.getElementById('marca').value;
+			const modelo = document.getElementById('modelo').value;
+			const disponivel = document.getElementById('disponivel').value === "true";
+	
+			fetch('/api/cadastrar_veiculo', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ marca, modelo, disponivel })
+			})
+			.then(response => response.json())
+			.then(data => {
+				alert(data.message);
+				location.reload(); // Atualiza a página após o cadastro
+			})
+			.catch(error => console.error('Erro:', error));
+		});
+	</script>
+	
+	<!-- Script Libera veículo -->
+	<script>
+		document.querySelectorAll('.liberar-veiculo').forEach(button => {
+			button.addEventListener('click', function() {
+				const veiculoId = this.dataset.veiculoId;
+		
+				fetch(`/api/veiculos/liberar/${veiculoId}`, {
+					method: 'POST',
+				})
+				.then(response => {
+					if (response.ok) {
+						alert('Veículo liberado com sucesso!');
+						atualizarContagemVeiculos();
+						calendar.refetchEvents(); // Atualiza o calendário
+					} else {
+						alert('Erro ao liberar o veículo.');
+					}
+				});
+			});
+		});
+	</script>
+
+    <!-- Script Calendário -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             var calendarEl = document.getElementById('calendar');
@@ -139,12 +188,54 @@
 
             // Inicializa o calendário
             var calendar = new FullCalendar.Calendar(calendarEl, {
+				//initialDate: new Date().toISOString().split('T')[0],
+				//dateAlignment: 'today',
+				//scrollTime: '08:00:00',
                 initialView: 'timeGridWeek',
+				headerToolbar: {
+					left: 'prev,next today',
+					center: 'title',
+					right: 'timeGridWeek,timeGridDay,listDay' // Opções de visualização
+				},
+				windowResize: function(){
+					if (window.innerWidth < 768){
+						calendar.changeView('listDay');
+					} else {
+						calendar.changeView('timeGridWeek');
+					}
+				},
+				locale: 'pt-br',
                 events: '/api/agendamentos',
                 dateClick: function(info) {
-                    // Abre o modal ao clicar em uma data
-                    agendamentoModal.show();
-                }
+					const clickedDate = new Date(info.dateStr);
+					const today = new Date();
+					today.setHours(0,0,0,0);
+					
+					if (clickedDate < today ){
+						// Verifica se a data é do dia atual ou futura
+						alert("Você não pode agendar em datas passadas.");
+						return;
+					}
+					
+					// Verifica se o horário clicado é anterior ao horário atual
+					const clickedHour = new Date(info.dateStr);
+					const currentHour = new Date();
+					if (clickedHour < currentHour){
+						alert("Você não pode agendar para horários passados.");
+					} else {
+						// Abre modal para Agendamento
+						agendamentoModal.show();
+					}
+					
+
+					
+                },
+				slotLabelFormat: {
+					hour: '2-digit',
+					minute: '2-digit',
+					hour12: false,
+					meridiem: false
+				}
             });
 
             calendar.render();
@@ -201,6 +292,8 @@
         });
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@3.11.0/dist/fullcalendar.min.js"></script>
+    <script src="{{url_for('static', filename='js/fullCalendar.js')}}"></script>
+	<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/locales/pt-br.js"></script>
+
 </body>
 </html>

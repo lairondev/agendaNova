@@ -107,20 +107,26 @@ def agendamentos():
             }
         }), 201
 
-# Rota para marcar o veículo como livre novamente
-@app.route("/api/veiculo/<int:id>/liberar", methods=["POST"])
+# Rota para marcar o veículo como livre novamente'''
+'''@app.route("/api/veiculo/<int:id>/liberar", methods=["POST"])
 def liberar_veiculo(id):
     veiculo = Veiculo.query.get(id)
     if veiculo:
         veiculo.disponivel = veiculo.total  # Restaura a disponibilidade total
         db.session.commit()
         return jsonify({"message": "Veículo liberado."}), 200
-    return jsonify({"error": "Veículo não encontrado."}), 404
+    return jsonify({"error": "Veículo não encontrado."}), 404'''
 
 
-@app.route('/api/veiculos/contagem')
-def get_veiculos_disponiveis():
-    ...
+@app.route('/api/veiculos/liberar/<int:veiculo_id>', methods=['POST'])
+def liberar_veiculo(veiculo_id):
+    veiculo = Veiculo.query.get(veiculo_id)
+    if not veiculo:
+        return jsonify({'error': 'Veiculo não encontrado'}), 404
+        
+    veiculo.disponível = True
+    db.session.commit()
+    return jsonify({message: 'Veículo liberado para um novo evento'})
 
 
 
@@ -129,4 +135,4 @@ with app.app_context():
     db.create_all()
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host="0.0.0.0", port="5000")
