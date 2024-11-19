@@ -10,9 +10,12 @@ db = SQLAlchemy(app)
 # Modelo de Veículo
 class Veiculo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(50), nullable=False)
-    total = db.Column(db.Integer, default=2)  # Coluna total de veículos (valor padrão 2)
-    disponivel = db.Column(db.Integer, nullable=False, default=2)  # Coluna de veículos disponíveis
+    marca = db.Column(db.String(50), nullable=False)
+    modelo = db.Column(db.String(50), nullable=False)
+    disponivel = db.Column(db.Boolean, default=True)
+
+    def __repr__(self):
+        return f'<Veiculo {self.marca} {self.modelo} - Disponível: {self.disponivel}>'
 
 # Modelo de Agendamento
 class Agendamento(db.Model):
@@ -25,8 +28,22 @@ class Agendamento(db.Model):
 
 @app.route("/")
 def index():
-    veiculos = Veiculo.query.first()
-    return render_template("index.html", veiculos_disponiveis=veiculos.total)
+    veiculos = Veiculo.query.filter_by(disponivel=True).count()
+    return render_template("index.html", veiculos_disponiveis=veiculos)
+    
+
+@app.route('/api/cadastrar_veiculo', methods=['POST'])
+def cadastrar_veiculo():
+    data = request.json
+    novo_veiculo = Veiculo(
+        marca=data['marca'],
+        modelo=data['modelo'],
+        disponivel=data['disponivel']
+    )
+    db.session.add(novo_veiculo)
+    db.session.commit()
+    return jsonify({"message": "Veículo cadastrado com sucesso"}), 201
+
 
 # Rota para contar veículos disponíveis
 @app.route("/api/veiculos/contagem")
@@ -41,8 +58,9 @@ def veiculos():
     veiculos = Veiculo.query.filter_by(disponivel=True).all()
     return jsonify([{
         "id": veiculo.id,
-        "nome": veiculo.nome
+        "nome": f"{veiculo.marca} {veiculo.modelo}"
     } for veiculo in veiculos])
+
 
 # Rota para buscar e salvar os agendamentos
 @app.route("/api/agendamentos", methods=["GET", "POST"])
@@ -51,7 +69,7 @@ def agendamentos():
         eventos = Agendamento.query.all()
         return jsonify([{
             "id": evento.id,
-            "title": f"{evento.veiculo.nome} - {evento.detalhes}",
+            "title": f"{evento.veiculo.modelo} - {evento.detalhes}",
             "start": evento.start.isoformat(),
             "end": evento.end.isoformat()
         } for evento in eventos])
@@ -65,8 +83,8 @@ def agendamentos():
         if start.date() == datetime.today().date():
             # Decrementa a disponibilidade do veículo
             veiculo = Veiculo.query.get(data['veiculo_id'])
-            if veiculo and veiculo.disponivel > 0:
-                veiculo.disponivel -= 1
+            if veiculo and veiculo.disponivel:
+                veiculo.disponivel = False
                 db.session.commit()
             else:
                 return jsonify({"error": "Veículo não disponível."}), 400
@@ -102,9 +120,7 @@ def liberar_veiculo(id):
 
 @app.route('/api/veiculos/contagem')
 def get_veiculos_disponiveis():
-    # Lógica para contar os veículos disponíveis
-    veiculos_disponiveis = contar_veiculos_disponiveis()  # Você precisa implementar essa função
-    return jsonify({'disponiveis': veiculos_disponiveis})
+    ...
 
 
 
