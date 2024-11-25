@@ -45,7 +45,7 @@
             <button class="btn btn-light mt-3 mb-3 w-100" data-bs-toggle="modal" data-bs-target="#cadastrarVeiculoModal">
                 Cadastrar Veículo
             </button>
-			<button class="btn btn-success liberar-veiculo" data-veiculo-id="1">
+			<button class="btn btn-success liberar-veiculo" data-veiculo-id="" data-bs-toggle="modal" data-bs-target="#liberarVeiculoModal">
 				Liberar
 			</button>
 
@@ -75,7 +75,7 @@
                         <div class="mb-3">
                             <label for="dataTermino" class="form-label">Data e Hora de Término</label>
                             <input type="datetime-local" class="form-control" id="dataTermino">
-                        </div>
+                        </div><!--
                         <div class="mb-3">
                             <label for="veiculo" class="form-label">Veículo</label>
                             <select class="form-select" id="veiculo">
@@ -85,7 +85,7 @@
                         <div class="mb-3">
                             <label for="detalhes" class="form-label">Detalhes</label>
                             <textarea class="form-control" id="detalhes" rows="3"></textarea>
-                        </div>
+                        </div>-->
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -130,6 +130,49 @@
             </div>
         </div>
     </div>
+	
+	<!-- Liberar veículo modal -->
+	<div class="modal fade" id="liberarVeiculoModal" tabindex="-1" aria-labelledby="liberarVeiculoModalLabel" aria-hidden="true">
+		<div class="modal-dialog">
+			<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="liberarVeiculoModalLabel">Liberar Veículo</h5>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+			</div>
+			<div class="modal-body">
+				<p>Tem certeza que deseja liberar o veículo selecionado?</p>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+				<button type="button" class="btn btn-primary liberar-veiculo-confirmacao" data-veiculo-id="">Confirmar</button>
+			</div>
+			</div>
+		</div>
+	</div>
+	
+	<script>
+		// Existing liberar-veiculo script
+		
+		document.querySelectorAll('.liberar-veiculo-confirmacao').forEach(button => {
+			button.addEventListener('click', function() {
+			const veiculoId = this.dataset.veiculoId;
+		
+			fetch(`/api/veiculos/liberar/${veiculoId}`, {
+				method: 'POST',
+			})
+				.then(response => {
+				if (response.ok) {
+					alert('Veículo liberado com sucesso!');
+					$('#liberarVeiculoModal').modal('hide'); // Hide modal on success
+					calendar.refetchEvents(); // Refresh calendar events
+					atualizarContagemVeiculos(); // Update vehicle count
+				} else {
+					alert('Erro ao liberar o veículo.');
+				}
+				});
+			});
+		});
+	</script>
 	
 	<!-- Script Cadastra Veículo -->
 	<script>
@@ -220,9 +263,15 @@
 					// Verifica se o horário clicado é anterior ao horário atual
 					const clickedHour = new Date(info.dateStr);
 					const currentHour = new Date();
-					if (clickedHour < currentHour){
+					if (clickedHour < currentHour && clickedDate.toDateString() === today.toDateString()){
 						alert("Você não pode agendar para horários passados.");
 					} else {
+						// Preenche o campo de Data e Hora de Início
+						dataInicioInput.value = info.dateStr;
+						
+						// Preenche o campo de Data e Hora de Início
+						dataTerminoInput.value = "";
+						
 						// Abre modal para Agendamento
 						agendamentoModal.show();
 					}
@@ -258,27 +307,21 @@
                 });
 
             // Salvar agendamento
-            salvarAgendamentoBtn.addEventListener('click', function() {
-                var agendamentoData = {
-                    veiculo_id: veiculoInput.value,
-                    start: dataInicioInput.value,
-                    end: dataTerminoInput.value,
-                    detalhes: detalhesInput.value
-                };
+            document.getElementByid('salvarAgendamento').addEventListener('click', function() {
+				const usuario_id = 1;
+				const hora_saida = getElementById('dataInicio').value;
+				const hora_retorno = getElementById('dataTermino').value;
 
                 fetch('/api/agendamentos', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(agendamentoData)
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(usuario_id, hora_saida, hora_retorno)
                 })
                 .then(response => response.json())
                 .then(data => {
                     // Fechar o modal e recarregar o calendário
                     agendamentoModal.hide();
-                    calendar.refetchEvents();  // Recarrega os eventos no calendário
-                    atualizarContagemVeiculos(); // Atualiza a contagem de veículos disponíveis
+                    calendar.refetchEvents(); // Atualiza a contagem de veículos disponíveis
                 });
             });
 

@@ -1,138 +1,75 @@
 from flask import Flask, jsonify, request, render_template
-from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from models import Veiculo, Usuario, Agendamento, HistoricoMovimentacao, app, db
 
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///agendamentos.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
 
-# Modelo de Veículo
-class Veiculo(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    marca = db.Column(db.String(50), nullable=False)
-    modelo = db.Column(db.String(50), nullable=False)
-    disponivel = db.Column(db.Boolean, default=True)
-
-    def __repr__(self):
-        return f'<Veiculo {self.marca} {self.modelo} - Disponível: {self.disponivel}>'
-
-# Modelo de Agendamento
-class Agendamento(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    veiculo_id = db.Column(db.Integer, db.ForeignKey('veiculo.id'), nullable=False)
-    veiculo = db.relationship('Veiculo', backref=db.backref('agendamentos', lazy=True))
-    detalhes = db.Column(db.String(200), nullable=False)
-    start = db.Column(db.DateTime, nullable=False)
-    end = db.Column(db.DateTime, nullable=False)
 
 @app.route("/")
 def index():
-    veiculos = Veiculo.query.filter_by(disponivel=True).count()
-    return render_template("index.html", veiculos_disponiveis=veiculos)
-    
+    return render_template("index.html")
 
-@app.route('/api/cadastrar_veiculo', methods=['POST'])
-def cadastrar_veiculo():
+# Rota para obter agendamentos para o FullCalendar
+@app.route('/api/agendamentos', methods=['GET'])
+def get_agendamentos():
+    agendamentos = Agendamento.query.all()
+    eventos = [
+        {
+            'id': agendamento.id,
+            'title': f"Evento {agendamento.id} - {agendamento.usuario.nome}",
+            'start': agendamento.hora_saida.isoformat(),
+            'end': agendamento.hora_retorno.isoformat(),
+            'status': agendamento.status,
+        }
+        for agendamento in agendamentos
+    ]
+    return jsonify(eventos)
+
+# Rota para criar um novo agendamento
+@app.route('/api/agendamentos', methods=['POST'])
+def create_agendamento():
     data = request.json
-    novo_veiculo = Veiculo(
-        marca=data['marca'],
-        modelo=data['modelo'],
-        disponivel=data['disponivel']
-    )
-    db.session.add(novo_veiculo)
-    db.session.commit()
-    return jsonify({"message": "Veículo cadastrado com sucesso"}), 201
+    usuario_id = data.get('usuario_id')
+    hora_saida = datetime.fromisoformat(data.get('hora_saida'))
+    hora_retorno = datetime.fromisoformat(data.get('hora_retorno'))
 
-
-# Rota para contar veículos disponíveis
-@app.route("/api/veiculos/contagem")
-def veiculos_contagem():
-    veiculos = Veiculo.query.all()
-    total_disponiveis = sum([veiculo.disponivel for veiculo in veiculos])
-    return jsonify({"disponiveis": total_disponiveis})
-
-# Rota para listar os veículos disponíveis
-@app.route("/api/veiculos")
-def veiculos():
-    veiculos = Veiculo.query.filter_by(disponivel=True).all()
-    return jsonify([{
-        "id": veiculo.id,
-        "nome": f"{veiculo.marca} {veiculo.modelo}"
-    } for veiculo in veiculos])
-
-
-# Rota para buscar e salvar os agendamentos
-@app.route("/api/agendamentos", methods=["GET", "POST"])
-def agendamentos():
-    if request.method == "GET":
-        eventos = Agendamento.query.all()
-        return jsonify([{
-            "id": evento.id,
-            "title": f"{evento.veiculo.modelo} - {evento.detalhes}",
-            "start": evento.start.isoformat(),
-            "end": evento.end.isoformat()
-        } for evento in eventos])
-
-    if request.method == "POST":
-        data = request.json
-        start = datetime.fromisoformat(data['start'])
-        end = datetime.fromisoformat(data['end'])
-        
-        # Verifica se a data de agendamento é o dia atual
-        if start.date() == datetime.today().date():
-            # Decrementa a disponibilidade do veículo
-            veiculo = Veiculo.query.get(data['veiculo_id'])
-            if veiculo and veiculo.disponivel:
-                veiculo.disponivel = False
-                db.session.commit()
-            else:
-                return jsonify({"error": "Veículo não disponível."}), 400
-        
-        novo_evento = Agendamento(
-            veiculo_id=data['veiculo_id'],
-            detalhes=data['detalhes'],
-            start=start,
-            end=end
+    # Verificar veículos disponíveis
+    veiculos_disponiveis = Veiculo.query.filter_by(status='disponível', localizacao_atual='parque').all()
+    if veiculos_disponiveis:
+        veiculo = veiculos_disponiveis[0]  # Seleciona o primeiro disponível
+        veiculo.status = 'em_corrida'
+        veiculo.localizacao_atual = 'em_transporte'
+        agendamento = Agendamento(
+            veiculo_id=veiculo.id,
+            usuario_id=usuario_id,
+            hora_saida=hora_saida,
+            hora_retorno=hora_retorno,
+            status='confirmado'
         )
-        db.session.add(novo_evento)
-        db.session.commit()
-        
-        return jsonify({
-            "data": {
-                "id": novo_evento.id,
-                "title": f"{novo_evento.veiculo.nome} - {novo_evento.detalhes}",
-                "start": novo_evento.start.isoformat(),
-                "end": novo_evento.end.isoformat()
-            }
-        }), 201
+    else:
+        agendamento = Agendamento(
+            usuario_id=usuario_id,
+            hora_saida=hora_saida,
+            hora_retorno=hora_retorno,
+            status='pendente'
+        )
 
-# Rota para marcar o veículo como livre novamente'''
-'''@app.route("/api/veiculo/<int:id>/liberar", methods=["POST"])
-def liberar_veiculo(id):
-    veiculo = Veiculo.query.get(id)
-    if veiculo:
-        veiculo.disponivel = veiculo.total  # Restaura a disponibilidade total
-        db.session.commit()
-        return jsonify({"message": "Veículo liberado."}), 200
-    return jsonify({"error": "Veículo não encontrado."}), 404'''
-
-
-@app.route('/api/veiculos/liberar/<int:veiculo_id>', methods=['POST'])
-def liberar_veiculo(veiculo_id):
-    veiculo = Veiculo.query.get(veiculo_id)
-    if not veiculo:
-        return jsonify({'error': 'Veiculo não encontrado'}), 404
-        
-    veiculo.disponível = True
+    db.session.add(agendamento)
     db.session.commit()
-    return jsonify({message: 'Veículo liberado para um novo evento'})
+
+    return jsonify({'message': 'Agendamento criado com sucesso!', 'id': agendamento.id}), 201
+
+# Rota para retornar veículo ao parque
+@app.route('/api/veiculos/retorno/<int:veiculo_id>', methods=['POST'])
+def retornar_veiculo(veiculo_id):
+    veiculo = Veiculo.query.get_or_404(veiculo_id)
+    veiculo.status = 'disponível'
+    veiculo.localizacao_atual = 'parque'
+    db.session.commit()
+    return jsonify({'message': 'Veículo retornado ao parque com sucesso!'}), 200
 
 
 
-# Criação do banco de dados
-with app.app_context():
-    db.create_all()
-
-if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port="5000")
+if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
+    app.run(debug=True)
