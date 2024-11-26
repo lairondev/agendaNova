@@ -11,7 +11,8 @@ db = SQLAlchemy(app)
 class Veiculo(db.Model):
     __tablename__ = 'veiculos'
     id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(50), nullable=False)
+    marca = db.Column(db.String(50), nullable=False)
+    modelo = db.Column(db.String(50), nullable=False)
     status = db.Column(db.String(20), default='disponível')  # disponível, em_corrida, em_manutencao
     localizacao_atual = db.Column(db.String(20), default='parque')  # parque ou em_transporte
 

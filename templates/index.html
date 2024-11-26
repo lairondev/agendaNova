@@ -34,7 +34,7 @@
             <div class="card card-info">
                 <div class="card-body">
                     <h6 class="card-title">Veículos Disponíveis</h6>
-                    <p id="veiculosDisponiveis">total: {{veiculos_disponiveis}}</p>
+                    <p id="veiculosDisponiveis">total: {{qtde}}</p>
                 </div>
             </div>
 
@@ -67,34 +67,59 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="agendamentoForm">
+                    <form id="agendamentoForm" action="/agendamento" method="POST">
                         <div class="mb-3">
                             <label for="dataInicio" class="form-label">Data e Hora de Início</label>
-                            <input type="datetime-local" class="form-control" id="dataInicio">
+                            <input type="datetime-local" name="horaInicio" class="form-control" id="dataInicio">
                         </div>
                         <div class="mb-3">
                             <label for="dataTermino" class="form-label">Data e Hora de Término</label>
-                            <input type="datetime-local" class="form-control" id="dataTermino">
-                        </div><!--
+                            <input type="datetime-local" name="horaFim" class="form-control" id="dataTermino">
+                        </div>
                         <div class="mb-3">
                             <label for="veiculo" class="form-label">Veículo</label>
-                            <select class="form-select" id="veiculo">
+                            <select class="form-select" name="id_veiculo" id="veiculo">
                                 <option value="">Selecione um veículo</option>
+								{% for carro in veiculos %}
+								<option value="{{carro.id}}">{{ carro.modelo }}</option>
+								{% endfor %}
                             </select>
                         </div>
                         <div class="mb-3">
                             <label for="detalhes" class="form-label">Detalhes</label>
-                            <textarea class="form-control" id="detalhes" rows="3"></textarea>
+                            <textarea class="form-control" name="detalhes"id="detalhes" rows="3"></textarea>
                         </div>-->
+						<div class="modal-footer">
+							<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+							<button type="s" class="btn btn-primary" id="salvarAgendamento">Salvar</button>
+						</div>
                     </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="salvarAgendamento">Salvar</button>
                 </div>
             </div>
         </div>
     </div>
+	
+	<!-- Modal para Exibir Detalhes do Evento -->
+	<div class="modal fade" id="eventDetailsModal" tabindex="-1" aria-labelledby="eventDetailsLabel" aria-hidden="true">
+		<div class="modal-dialog">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title" id="eventDetailsLabel">Detalhes do Evento</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+				<div class="modal-body">
+					<p><strong>Título:</strong> <span id="eventTitle"></span></p>
+					<p><strong>Data de Início:</strong> <span id="eventStart"></span></p>
+					<p><strong>Data de Término:</strong> <span id="eventEnd"></span></p>
+					<p><strong>Detalhes:</strong> <span id="eventDetails"></span></p>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
     
     <!-- Modal para Cadastrar veículos -->
     <div class="modal fade" id="cadastrarVeiculoModal" tabindex="-1" aria-labelledby="cadastrarVeiculoModalLabel" aria-hidden="true">
@@ -105,27 +130,28 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="formCadastrarVeiculo">
+                    <form id="formCadastrarVeiculo" action="/cad-veiculo" method="POST">
                         <div class="mb-3">
                             <label for="marca" class="form-label">Marca</label>
-                            <input type="text" class="form-control" id="marca" required>
+                            <input type="text" name="marca" class="form-control" id="marca" required>
                         </div>
                         <div class="mb-3">
                             <label for="modelo" class="form-label">Modelo</label>
-                            <input type="text" class="form-control" id="modelo" required>
+                            <input type="text" name="modelo" class="form-control" id="modelo" required>
                         </div>
                         <div class="mb-3">
                             <label for="disponivel" class="form-label">Disponibilidade</label>
-                            <select class="form-select" id="disponivel">
+                            <select class="form-select" name="status" id="disponivel">
                                 <option value="true" selected>Disponível</option>
                                 <option value="false">Indisponível</option>
                             </select>
                         </div>
+						
+						<div class="modal-footer">
+							<button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+							<button  class="btn btn-primary" id="">Salvar</button>
+						</div>
                     </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="salvarVeiculo">Salvar</button>
                 </div>
             </div>
         </div>
@@ -248,7 +274,7 @@
 					}
 				},
 				locale: 'pt-br',
-                events: '/api/agendamentos',
+                events: '/agendamento',
                 dateClick: function(info) {
 					const clickedDate = new Date(info.dateStr);
 					const today = new Date();
@@ -275,10 +301,19 @@
 						// Abre modal para Agendamento
 						agendamentoModal.show();
 					}
-					
-
-					
                 },
+				eventClick: function (info){
+					document.getElementById("eventTitle").innerText = info.event.title;
+					document.getElementById("eventStart").innerText = new Date(info.event.start).toLocaleString('pt-BR');
+					document.getElementById("eventEnd").innerText = info.event.end
+						? new Date(info.event.end).toLocaleString('pt-BR')
+						: "Sem término definido";
+					document.getElementById("eventDetails").innerText = info.event.extendedProps.details;
+					
+					// Exibe modal
+					var myModal = new bootstrap.Modal(document.getElementById("eventDetailsModal"));
+					myModal.show();
+				},
 				slotLabelFormat: {
 					hour: '2-digit',
 					minute: '2-digit',
